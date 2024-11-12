@@ -1,0 +1,36 @@
+#!/bin/bash
+
+# Debug output
+echo "Starting memento..."
+
+# Get the absolute path of the script directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+echo "Script directory: $SCRIPT_DIR"
+
+# Set TERM environment variable
+export TERM=xterm
+echo "TERM set to: $TERM"
+
+# Check if memento.py exists
+if [ -f "$SCRIPT_DIR/memento.py" ]; then
+    echo "Found memento.py"
+else
+    echo "Error: memento.py not found in $SCRIPT_DIR"
+    exit 1
+fi
+
+# Launch the application in a new terminal
+echo "Launching terminal..."
+gnome-terminal --geometry 65x30 --hide-menubar -- python3 "$SCRIPT_DIR/memento.py"
+
+# Debug output
+echo "Launch command completed"#!/bin/bash
+
+# Get the absolute path of the script directory
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# Set TERM environment variable
+export TERM=xterm
+
+# Launch the application in a new terminal
+gnome-terminal --geometry 65x30 --hide-menubar -- python3 "$SCRIPT_DIR/memento.py"
