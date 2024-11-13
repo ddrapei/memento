@@ -282,15 +282,63 @@ def add_word(words):
 def view_words(words):
     print_menu_header("Word List")
     if not words:
-        print(center_text(Colors.colorize("No words available.", Colors.YELLOW)))
+        print(Colors.colorize("    No words available.", Colors.YELLOW))
         return
 
     terminal_width = shutil.get_terminal_size().columns
-    for i, (word, definition) in enumerate(words.items(), 1):
-        color = Colors.CYAN if i % 2 == 0 else Colors.WHITE
-        entry = f"{i}. {word}: {definition}"
-        print(center_text(Colors.colorize(entry, color, bold=True), terminal_width))
+    current_filter = ""
 
+    while True:
+        # Clear screen for each update
+        clear_screen()
+        print_menu_header("Word List")
+
+        # Show current filter if any
+        if current_filter:
+            print(Colors.colorize(f"\n    Current filter: {current_filter}", Colors.YELLOW))
+
+        # Filter and display words
+        filtered_words = {
+            word: definition
+            for word, definition in words.items()
+            if word.lower().startswith(current_filter.lower())
+        }
+
+        # Display filtered words
+        if filtered_words:
+            for i, (word, definition) in enumerate(filtered_words.items(), 1):
+                entry = f"    {i}. {word}: {definition}"
+
+                if len(entry) > terminal_width:
+                    available_width = terminal_width - (len(f"    {i}. {word}: "))
+                    wrapped_definition = definition[:available_width - 3] + "..."
+                    entry = f"    {i}. {word}: {wrapped_definition}"
+
+                print(Colors.colorize(entry, Colors.GREEN))
+        else:
+            print(Colors.colorize(f"\n    No words found starting with '{current_filter}'", Colors.YELLOW))
+
+        # Show instructions
+        print(Colors.colorize(
+            "\n    Type a letter to filter words, press Enter to return to menu, or type 'clear' to clear filter",
+            Colors.CYAN))
+
+        # Get user input
+        user_input = input(Colors.colorize("\n    Input: ", Colors.YELLOW)).lower()
+
+        # Handle user input
+        if user_input == '':
+            break  # Return to main menu
+        elif user_input == 'clear':
+            current_filter = ""  # Clear the filter
+        else:
+            current_filter += user_input  # Add to current filter
+
+        # If no words match the filter, give option to remove last character
+        if not any(word.lower().startswith(current_filter.lower()) for word in words):
+            print(Colors.colorize("\n    No matches found! Last character will be removed.", Colors.RED))
+            time.sleep(1)
+            current_filter = current_filter[:-1]  # Remove last character
 
 def delete_word(words):
     print_menu_header("Delete Word")
@@ -351,48 +399,70 @@ def highlight_mistakes(user_answer, correct_word):
     return result
 
 
-def quiz(words):
+def quiz(words, retry_mode=False, retry_words=None):
+    """
+    Quiz function that handles both normal quiz mode and retry mode.
+    Allows users to exit to main menu at any time by typing 'exit' or 'menu'.
+    """
     if not words:
         print(Colors.colorize("No words available to quiz. Add some words first.", Colors.YELLOW))
         return
 
     print_menu_header("Vocabulary Quiz")
 
-    # Get the number of words the user wants to include in the quiz
-    while True:
-        try:
-            user_input = input(
-                Colors.colorize("Enter the number of words to include in the quiz (default is 15): ", Colors.CYAN))
-            # If user just pressed Enter, use default value
-            if user_input.strip() == "":
-                quiz_size = 15
+    if retry_mode:
+        word_definitions = retry_words
+        quiz_size = len(retry_words)
+        print(Colors.colorize(f"\nRetrying {quiz_size} incorrect words...", Colors.CYAN))
+    else:
+        # Get the number of words the user wants to include in the quiz
+        while True:
+            try:
+                print(Colors.colorize("\nType 'exit' or 'menu' at any time to return to main menu", Colors.YELLOW))
+                user_input = input(
+                    Colors.colorize("Enter the number of words to include in the quiz (default is 15): ", Colors.CYAN))
+
+                # Check for exit command
+                if user_input.lower() in ['exit', 'menu']:
+                    print(Colors.colorize("\nReturning to main menu...", Colors.YELLOW))
+                    return
+
+                # If user just pressed Enter, use default value
+                if user_input.strip() == "":
+                    quiz_size = 15
+                    break
+
+                quiz_size = int(user_input)
+                if quiz_size <= 0:
+                    print(Colors.colorize("Please enter a positive number.", Colors.RED))
+                    continue
                 break
+            except ValueError:
+                print(Colors.colorize("Invalid input. Please enter a number.", Colors.RED))
 
-            quiz_size = int(user_input)
-            if quiz_size <= 0:
-                print(Colors.colorize("Please enter a positive number.", Colors.RED))
-                continue
-            break
-        except ValueError:
-            print(Colors.colorize("Invalid input. Please enter a number.", Colors.RED))
+        word_definitions = list(words.items())
+        # Make sure quiz_size doesn't exceed the number of available words
+        quiz_size = min(quiz_size, len(word_definitions))
+        random.shuffle(word_definitions)
+        word_definitions = word_definitions[:quiz_size]
 
-    word_definitions = list(words.items())
-    # Make sure quiz_size doesn't exceed the number of available words
-    quiz_size = min(quiz_size, len(word_definitions))
-    random.shuffle(word_definitions)
     incorrect_words = []
     total_words = quiz_size
     correct_count = 0
     words_attempted = set()
 
-    for index, (word, definition) in enumerate(word_definitions[:quiz_size], 1):
+    print(Colors.colorize("\nType 'exit' or 'menu' at any time to end the quiz and return to main menu", Colors.YELLOW))
+
+    for index, (word, definition) in enumerate(word_definitions, 1):
         print_progress(index - 1, total_words)
         print(Colors.colorize(f"\nDefinition: '{definition}'", Colors.CYAN))
-        answer = input(Colors.colorize("Your answer: ", Colors.YELLOW))
+        answer = input(Colors.colorize("Your answer (or type 'exit'/'menu' to end quiz): ", Colors.YELLOW))
 
-        # Allow the user to cancel the quiz and return to the main menu
-        if answer.strip().lower() == 'cancel':
-            print(Colors.colorize("\nQuiz canceled. Returning to the main menu.", Colors.YELLOW))
+        # Check for exit command
+        if answer.strip().lower() in ['exit', 'menu']:
+            print(Colors.colorize("\nEnding quiz early. Returning to main menu...", Colors.YELLOW))
+            if words_attempted:  # Only update stats if at least one word was attempted
+                update_stats(correct_count, len(words_attempted), list(words_attempted))
             return
 
         words_attempted.add(word)
@@ -407,26 +477,31 @@ def quiz(words):
             incorrect_words.append((word, definition))
 
     print_progress(total_words, total_words)
-    score_percentage = (correct_count / total_words) * 100
 
-    print("\n" + Colors.colorize("═" * 50, Colors.BLUE))
-    print(Colors.colorize("Quiz Complete!", Colors.YELLOW, bold=True))
-    print(Colors.colorize(
-        f"Score: {correct_count}/{total_words} ({score_percentage:.1f}%)",
-        Colors.GREEN if score_percentage >= 70 else Colors.RED,
-        bold=True
-    ))
-    print(Colors.colorize("═" * 50, Colors.BLUE))
+    # Only show final stats if at least one word was attempted
+    if words_attempted:
+        score_percentage = (correct_count / len(words_attempted)) * 100
 
-    update_stats(correct_count, total_words, list(words_attempted))
+        print("\n" + Colors.colorize("═" * 50, Colors.BLUE))
+        print(Colors.colorize("Quiz Complete!", Colors.YELLOW, bold=True))
+        print(Colors.colorize(
+            f"Score: {correct_count}/{len(words_attempted)} ({score_percentage:.1f}%)",
+            Colors.GREEN if score_percentage >= 70 else Colors.RED,
+            bold=True
+        ))
+        print(Colors.colorize("═" * 50, Colors.BLUE))
 
-    if incorrect_words:
-        retry = input(Colors.colorize("\nWould you like to retry the words you got wrong? (yes/no): ", Colors.YELLOW))
-        if retry.lower() == 'yes':
-            print(Colors.colorize("\nRetrying incorrect words...", Colors.CYAN))
-            random.shuffle(incorrect_words)
-            quiz(dict(incorrect_words))
+        if not retry_mode:
+            update_stats(correct_count, len(words_attempted), list(words_attempted))
 
+        if incorrect_words:
+            retry = input(Colors.colorize(
+                f"\nWould you like to retry the {len(incorrect_words)} words you got wrong? (yes/no): ",
+                Colors.YELLOW))
+            if retry.lower() == 'yes':
+                print(Colors.colorize("\nStarting retry quiz...", Colors.CYAN))
+                random.shuffle(incorrect_words)
+                quiz(words, retry_mode=True, retry_words=incorrect_words)
 
 def export_words_to_csv(words):
     """Export the current word list to a CSV file."""
@@ -455,26 +530,55 @@ def import_words_from_csv():
     """Import a word list from a CSV file."""
     print_menu_header("Import Word List from CSV")
 
-    filename = input(Colors.colorize("Enter the filename (including .csv extension): ", Colors.CYAN))
-    file_path = os.path.join("data", filename)
-
     try:
-        with open(file_path, "r") as csvfile:
-            reader = csv.reader(csvfile)
-            next(reader)  # Skip the header row
-            imported_words = {row[0]: row[1] for row in reader}
+        # First check if data directory exists, if not create it
+        os.makedirs("data", exist_ok=True)
 
-        # Load the existing words, then update with the imported words
+        filename = input(Colors.colorize("Enter the filename (including .csv extension): ", Colors.CYAN))
+        file_path = os.path.join("data", filename)
+
+        # Load existing words first
         words = load_words()
-        words.update(imported_words)
+        initial_word_count = len(words)
+
+        with open(file_path, "r", encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+
+            # Check if the CSV has the correct headers
+            if not {'Word', 'Definition'} <= set(reader.fieldnames):
+                print(Colors.colorize("Error: CSV must have 'Word' and 'Definition' columns.", Colors.RED))
+                return
+
+            imported_count = 0
+            for row in reader:
+                word = row['Word'].strip()
+                definition = row['Definition'].strip()
+
+                # Only add if both word and definition are non-empty
+                if word and definition:
+                    words[word] = definition
+                    imported_count += 1
+
+        # Save the updated words dictionary
         save_words(words)
 
-        print(Colors.colorize(f"{len(imported_words)} words imported from {file_path}", Colors.GREEN))
-    except FileNotFoundError:
-        print(Colors.colorize(f"File '{file_path}' not found.", Colors.RED))
-    except (IOError, IndexError):
-        print(Colors.colorize("Error reading the CSV file. Make sure the format is correct.", Colors.RED))
+        # Calculate how many new words were actually added
+        new_words_added = len(words) - initial_word_count
 
+        if imported_count > 0:
+            print(Colors.colorize(
+                f"Successfully imported {imported_count} words ({new_words_added} new) from {filename}",
+                Colors.GREEN
+            ))
+        else:
+            print(Colors.colorize("No valid words found in the CSV file.", Colors.YELLOW))
+
+    except FileNotFoundError:
+        print(Colors.colorize(f"File '{filename}' not found in the data directory.", Colors.RED))
+    except csv.Error:
+        print(Colors.colorize("Error reading the CSV file. Make sure it's properly formatted.", Colors.RED))
+    except Exception as e:
+        print(Colors.colorize(f"An unexpected error occurred: {str(e)}", Colors.RED))
 
 def main():
     global RESIZE_HAPPENED
