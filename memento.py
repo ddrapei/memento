@@ -10,20 +10,7 @@ from datetime import datetime
 import shutil
 import signal
 
-
-RESIZE_HAPPENED = False
 CURRENT_DISPLAY = "main"
-
-
-def handle_resize(signum, frame):
-    """Signal handler for terminal resize"""
-    global RESIZE_HAPPENED
-    RESIZE_HAPPENED = True
-
-
-# Set up signal handler
-signal.signal(signal.SIGWINCH, handle_resize)
-
 
 def clear_screen():
     """Clear the terminal screen"""
@@ -33,28 +20,6 @@ def clear_screen():
 def get_terminal_size():
     """Get current terminal size"""
     return shutil.get_terminal_size()
-
-
-def redraw_screen(words, current_state=None):
-    """Redraw the entire screen based on current state"""
-    clear_screen()
-    terminal_width = get_terminal_size().columns
-    type_out_text(ascii_art, delay=0)  # No delay for redraw
-    print_menu_header("MEMENTO")
-
-    options = [
-        "Add Word",
-        "View Words",
-        "Quiz Yourself",
-        "Delete Word",
-        "Export Word List to CSV",
-        "Import Word List from CSV",
-        "View Statistics",
-        "Exit"
-    ]
-
-    for i, option in enumerate(options, 1):
-        print(Colors.colorize(f"    {i}. {option}", Colors.CYAN))
 
 def display_main_menu():
     """Display the main menu options"""
@@ -581,25 +546,15 @@ def import_words_from_csv():
         print(Colors.colorize(f"An unexpected error occurred: {str(e)}", Colors.RED))
 
 def main():
-    global RESIZE_HAPPENED
     env = os.environ.copy()
     env['TERM'] = 'xterm'
 
     clear_screen()
     type_out_text(ascii_art)
     words = load_words()
-    last_terminal_size = get_terminal_size()
 
     while True:
         try:
-            current_size = get_terminal_size()
-
-            # Check if terminal size has changed
-            if RESIZE_HAPPENED or current_size != last_terminal_size:
-                redraw_screen(words)
-                RESIZE_HAPPENED = False
-                last_terminal_size = current_size
-
             print_menu_header("MEMENTO")
             options = [
                 "Add Word",
@@ -659,7 +614,6 @@ def main():
             print(f"\nAn error occurred: {str(e)}")
             input("Press Enter to continue...")
             clear_screen()
-
 
 if __name__ == "__main__":
     try:
