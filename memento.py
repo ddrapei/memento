@@ -8,14 +8,12 @@ import sys
 import csv
 from datetime import datetime
 import shutil
-import signal
 
 CURRENT_DISPLAY = "main"
 
 def clear_screen():
     """Clear the terminal screen"""
     os.system('clear' if os.name == 'posix' else 'cls')
-
 
 def get_terminal_size():
     """Get current terminal size"""
